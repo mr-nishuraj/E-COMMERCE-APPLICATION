@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-Commerce Store</title>
+
+<style>
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Arial, sans-serif;
+}
+
+body{
+background:#f4f4f4;
+}
+
+header{
+background:#2c3e50;
+color:white;
+padding:15px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+header h1{
+font-size:24px;
+}
+
+.container{
+width:90%;
+margin:auto;
+padding:20px;
+}
+
+.auth-box{
+background:white;
+padding:20px;
+border-radius:10px;
+margin-bottom:20px;
+box-shadow:0 2px 5px rgba(0,0,0,.2);
+}
+
+input{
+width:100%;
+padding:10px;
+margin:8px 0;
+border:1px solid #ccc;
+border-radius:5px;
+}
+
+button{
+padding:10px 15px;
+border:none;
+background:#27ae60;
+color:white;
+cursor:pointer;
+border-radius:5px;
+margin-top:5px;
+}
+
+button:hover{
+background:#219150;
+}
+
+.products{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+gap:20px;
+margin-top:20px;
+}
+
+.card{
+background:white;
+padding:15px;
+border-radius:10px;
+box-shadow:0 2px 5px rgba(0,0,0,.2);
+}
+
+.card img{
+width:100%;
+height:180px;
+object-fit:cover;
+}
+
+.card h3{
+margin:10px 0;
+}
+
+.price{
+color:green;
+font-weight:bold;
+}
+
+.cart{
+background:white;
+padding:20px;
+margin-top:30px;
+border-radius:10px;
+box-shadow:0 2px 5px rgba(0,0,0,.2);
+}
+
+.cart-item{
+display:flex;
+justify-content:space-between;
+margin:10px 0;
+}
+
+.orders{
+background:white;
+padding:20px;
+margin-top:30px;
+border-radius:10px;
+box-shadow:0 2px 5px rgba(0,0,0,.2);
+}
+
+.hidden{
+display:none;
+}
+
+.logout-btn{
+background:red;
+}
+
+.logout-btn:hover{
+background:darkred;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>🛒 E-Commerce Store</h1>
+
+<div>
+<span id="welcome"></span>
+<button class="logout-btn" onclick="logout()">Logout</button>
+</div>
+</header>
+
+<div class="container">
+
+<div class="auth-box">
+
+<h2>Register</h2>
+
+<input type="text" id="regName" placeholder="Name">
+
+<input type="email" id="regEmail" placeholder="Email">
+
+<input type="password" id="regPassword" placeholder="Password">
+
+<button onclick="register()">Register</button>
+
+<hr style="margin:20px 0">
+
+<h2>Login</h2>
+
+<input type="email" id="loginEmail" placeholder="Email">
+
+<input type="password" id="loginPassword" placeholder="Password">
+
+<button onclick="login()">Login</button>
+
+</div>
+
+<h2>Products</h2>
+
+<div class="products" id="products"></div>
+
+<div class="cart">
+
+<h2>Cart</h2>
+
+<div id="cartItems"></div>
+
+<h3>Total: ₹<span id="total">0</span></h3>
+
+<button onclick="checkout()">Checkout</button>
+
+</div>
+
+<div class="orders">
+
+<h2>My Orders</h2>
+
+<div id="orders"></div>
+
+</div>
+
+</div>
+
+<script>
+
+const API="http://localhost:5000/api";
+
+let token=localStorage.getItem("token") || "";
+let cart=[];
+
+function saveToken(t){
+localStorage.setItem("token",t);
+token=t;
+}
+
+function logout(){
+localStorage.removeItem("token");
+location.reload();
+}
+
+async function register(){
+
+const name=document.getElementById("regName").value;
+const email=document.getElementById("regEmail").value;
+const password=document.getElementById("regPassword").value;
+
+const res=await fetch(`${API}/auth/register`,{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+name,
+email,
+password
+})
+});
+
+const data=await res.json();
+
+alert(data.message || "Registered");
+}
+
+async function login(){
+
+const email=document.getElementById("loginEmail").value;
+const password=document.getElementById("loginPassword").value;
+
+const res=await fetch(`${API}/auth/login`,{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+email,
+password
+})
+});
+
+const data=await res.json();
+
+if(data.token){
+
+saveToken(data.token);
+
+document.getElementById("welcome").innerText=
+`Welcome ${data.user.name}`;
+
+alert("Login Successful");
+
+loadOrders();
+
+}else{
+alert(data.message);
+}
+
+}
+
+async function loadProducts(){
+
+const res=await fetch(`${API}/products`);
+
+const products=await res.json();
+
+const container=document.getElementById("products");
+
+container.innerHTML="";
+
+products.forEach(product=>{
+
+container.innerHTML+=`
+
+<div class="card">
+
+<img src="${product.image}" alt="">
+
+<h3>${product.name}</h3>
+
+<p>${product.description}</p>
+
+<p class="price">₹${product.price}</p>
+
+<button onclick='addToCart(
+"${product._id}",
+"${product.name}",
+${product.price}
+)'>
+Add To Cart
+</button>
+
+</div>
+
+`;
+
+});
+
+}
+
+function addToCart(id,name,price){
+
+cart.push({
+id,
+name,
+price
+});
+
+renderCart();
+
+}
+
+function renderCart(){
+
+const container=document.getElementById("cartItems");
+
+container.innerHTML="";
+
+let total=0;
+
+cart.forEach((item,index)=>{
+
+total+=item.price;
+
+container.innerHTML+=`
+
+<div class="cart-item">
+
+<span>${item.name}</span>
+
+<span>₹${item.price}</span>
+
+<button onclick="removeItem(${index})">
+X
+</button>
+
+</div>
+
+`;
+
+});
+
+document.getElementById("total").innerText=total;
+
+}
+
+function removeItem(index){
+
+cart.splice(index,1);
+
+renderCart();
+
+}
+
+async function checkout(){
+
+if(!token){
+alert("Please Login First");
+return;
+}
+
+if(cart.length===0){
+alert("Cart Empty");
+return;
+}
+
+const total=cart.reduce(
+(sum,item)=>sum+item.price,
+0
+);
+
+const res=await fetch(`${API}/orders`,{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json",
+"Authorization":"Bearer "+token
+},
+
+body:JSON.stringify({
+items:cart,
+total
+})
+
+});
+
+const data=await res.json();
+
+alert(data.message);
+
+cart=[];
+
+renderCart();
+
+loadOrders();
+
+}
+
+async function loadOrders(){
+
+if(!token) return;
+
+const res=await fetch(`${API}/orders`,{
+
+headers:{
+"Authorization":"Bearer "+token
+}
+
+});
+
+const orders=await res.json();
+
+const container=
+document.getElementById("orders");
+
+container.innerHTML="";
+
+orders.forEach(order=>{
+
+container.innerHTML+=`
+
+<div style="
+border:1px solid #ddd;
+padding:10px;
+margin:10px 0;
+">
+
+<p>
+<b>Order ID:</b>
+${order._id}
+</p>
+
+<p>
+<b>Total:</b>
+₹${order.total}
+</p>
+
+<p>
+<b>Status:</b>
+${order.status}
+</p>
+
+<p>
+<b>Date:</b>
+${new Date(order.createdAt)
+.toLocaleString()}
+</p>
+
+</div>
+
+`;
+
+});
+
+}
+
+loadProducts();
+
+if(token){
+loadOrders();
+}
+
+</script>
+
+</body>
+</html>
